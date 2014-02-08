@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.nssol_sh.s5portal.persistence.DashboardTicketMapper">
+	<resultMap type="com.nssol_sh.s5portal.domain.TicketDataForCount"
+		id="result_ticketDataForCount">
+		<result property="name" column="name" />
+		<result property="counts" column="counts" />
+	</resultMap>
+
+	<resultMap type="com.nssol_sh.s5portal.domain.TicketDataForCountFinish"
+		id="result_ticketDataForCountFinish">
+		<result property="counts" column="counts" />
+		<result property="eHours" column="eHours" />
+		<result property="aHours" column="aHours" />
+	</resultMap>
+
+
+	<select id="getTicketData" resultMap="result_ticketDataForCount" parameterType="map">
+		SELECT a.name,  ifnull(b.countNum,0) AS counts
+		FROM issue_statuses a LEFT JOIN (
+			SELECT status_id, count(status_id) AS countNum 
+			FROM issues i INNER JOIN (
+			SELECT issue_id FROM custom_values_statistics
+			WHERE value1 = #{class1stsVal} AND value2 = #{class2stsVal} ) s
+			ON i.id = s.issue_id 
+			WHERE project_id = (
+				SELECT id FROM projects
+				WHERE identifier = #{projectId}
+			) AND DATE_FORMAT(i.created_on, '%Y-%m-%d') BETWEEN #{fromDate} AND #{toDate}
+			GROUP BY status_id
+		) b ON a.id = b.status_id
+		ORDER BY a.id;	
+	</select>
+	
+	<select id="getTicketDataPieChart" resultMap="result_ticketDataForCount" parameterType="map">
+		SELECT CONCAT(s.value1 , "--", s.value2) as name, count(status_id) AS counts 
+		FROM issues i INNER JOIN (
+		SELECT issue_id, value1, value2 FROM custom_values_statistics
+		WHERE value1 = #{class1stsVal} AND value2 = #{class2stsVal} ) s
+		ON i.id = s.issue_id 
+		WHERE project_id = (
+			SELECT id FROM projects
+			WHERE identifier = #{projectId}
+		) AND DATE_FORMAT(i.created_on, '%Y-%m-%d') BETWEEN #{fromDate} AND #{toDate}
+		AND i.status_id != #{statusId}
+		GROUP BY name	
+	</select>
+	
+	<select id="getTicketDataBarChart" resultMap="result_ticketDataForCount" parameterType="map">
+		SELECT s.value1 as name, count(status_id) AS counts 
+		FROM issues i INNER JOIN (
+		SELECT issue_id, value1 FROM custom_values_statistics
+		WHERE value1 = #{class1stsVal} ) s
+		ON i.id = s.issue_id 
+		WHERE project_id = (
+			SELECT id FROM projects
+			WHERE identifier = #{projectId}
+		) AND DATE_FORMAT(i.created_on, '%Y-%m-%d') BETWEEN #{fromDate} AND #{toDate}
+		AND i.status_id != #{statusId}
+	</select>
+	
+	<select id="getTicketDataFinish" resultMap="result_ticketDataForCount" parameterType="map">
+		SELECT a.name,  ifnull(b.countNum,0) AS counts
+		FROM issue_statuses a INNER JOIN (
+			SELECT status_id, count(status_id) AS countNum 
+			FROM issues i INNER JOIN (
+			SELECT issue_id FROM custom_values_statistics
+			WHERE value1 = #{class1stsVal} AND value2 = #{class2stsVal} ) s
+			ON i.id = s.issue_id 
+			WHERE project_id = (
+				SELECT id FROM projects
+				WHERE identifier = #{projectId}
+			) 
+			AND DATE_FORMAT(i.created_ON, '%Y-%m-%d') BETWEEN #{fromDate} AND #{toDate}
+			AND i.status_id = #{statusId}				
+			GROUP BY status_id
+		) b ON a.id = b.status_id		
+	</select>	
+	
+	<select id="getFinishTicketData" resultMap="result_ticketDataForCountFinish" parameterType="map">
+		SELECT count(b.id) AS counts, sum(b.estimated_hours) as eHours, sum(a.sumHours) aHours 
+		FROM (
+			SELECT issue_id, sum(hours) as sumHours 
+			FROM time_entries
+			GROUP BY issue_id 
+		) a INNER JOIN (
+			SELECT i.id, i.estimated_hours
+			FROM issues i INNER JOIN custom_values_statistics s
+			ON i.id = s.issue_id
+			WHERE s.value1 = #{class1stsVal} AND s.value2 = #{class2stsVal}
+			AND project_id = (
+				SELECT id FROM projects
+				WHERE identifier = #{projectId}
+			)
+			AND DATE_FORMAT(i.created_ON, '%Y-%m-%d') BETWEEN #{fromDate} AND #{toDate}
+			AND i.status_id = #{statusId}
+		) b
+		ON a.issue_id = b.id
+	</select>
+	
+</mapper>

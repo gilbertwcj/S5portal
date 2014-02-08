@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.nssol_sh.s5portal.persistence.CommonMapper">
+	<resultMap type="com.nssol_sh.s5portal.domain.Tracker"
+		id="result_tracker">
+		<result property="id" column="id" />
+		<result property="name" column="name" />		
+	</resultMap>
+	
+	<resultMap type="com.nssol_sh.s5portal.domain.Status"
+		id="result_status">
+		<result property="id" column="id" />
+		<result property="name" column="name" />		
+	</resultMap>
+	
+	<resultMap type="com.nssol_sh.s5portal.domain.Class1sts"
+		id="result_class1sts">
+		<result property="id" column="id" />
+		<result property="projectIdentifer" column="project_identifier" />		
+		<result property="name" column="name" />		
+	</resultMap>
+	
+	<resultMap type="com.nssol_sh.s5portal.domain.Class2sts"
+		id="result_class2sts">
+		<result property="id" column="id" />
+		<result property="parentId" column="parent_id" />		
+		<result property="name" column="name" />		
+	</resultMap>
+	
+	<resultMap type="com.nssol_sh.s5portal.domain.Projects"
+		id="result_projects">
+		<result property="id" column="id" />
+		<result property="name" column="name" />		
+		<result property="identifier" column="identifier" />		
+	</resultMap>
+
+	<select id="getTrackerByName" resultMap="result_tracker" >
+		SELECT id, name 
+		FROM trackers
+		WHERE name = #{trackerName};
+	</select>
+	
+	<select id="getStatusByName" resultMap="result_status" >
+		SELECT id, name 
+		FROM issue_statuses
+		WHERE name = #{statusName};
+	</select>
+	
+	<select id="getTrackers">
+		SELECT id, name FROM trackers;
+	</select>
+	
+	<select id="getClass1stsByProjectIdentifier" resultMap="result_class1sts" >
+		SELECT id, project_identifier, name 
+		FROM class1sts
+		WHERE project_identifier = #{projectIdentifier};
+	</select>
+	
+	<select id="getClass2stsByParentId" resultMap="result_class2sts" >
+		SELECT id, parent_id, name 
+		FROM class2sts
+		WHERE parent_id = #{parentId};
+	</select>
+	
+	<select id="getProjectByIdentifier" resultMap="result_projects" >
+		SELECT id,name,identifier 
+		FROM projects
+		WHERE identifier = #{identifier};
+	</select>
+
+</mapper>

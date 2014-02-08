@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.nssol_sh.s5portal.persistence.DashboardChartMapper">
+	<resultMap type="com.nssol_sh.s5portal.domain.DashboardChart01"
+		id="result_dashboardChart01">
+		<result property="name" column="id" />
+		<result property="count" column="count" />
+		<result property="projectId" column="project_id" />
+		<result property="projectName" column="project_name" />
+		<result property="userId" column="user_id" />
+	</resultMap>
+	
+	<resultMap type="com.nssol_sh.s5portal.domain.DashboardGrid01"
+		id="result_dashboardGrid01">
+		<result property="id" column="id" />
+		<result property="subject" column="subject" />
+		<result property="className1st" column="class1st" />
+		<result property="className2rd" column="class2rd" />
+		<result property="status" column="status" />		
+		<result property="doneRatio" column="done_ratio" />
+		<result property="priority" column="priority" />
+		<result property="userName" column="user_name" />
+		<result property="startDate" column="start_date" />		
+		<result property="dueDate" column="due_date" />
+		<result property="closeDate" column="close_date" />
+		<result property="estimatedHours" column="estimated_hours" />
+		<result property="actualHours" column="actual_hours" />
+	</resultMap>
+
+
+	<select id="getDashboardChart01Main" resultMap="result_dashboardChart01" parameterType="map">
+		SELECT cv.value as name, count(*) AS count
+		FROM issues i INNER JOIN projects p ON i.project_id = p.id 
+		INNER JOIN (
+			SELECT customized_id, value
+			FROM custom_values
+			WHERE custom_field_id IN (
+				select id FROM custom_fields
+				WHERE name = '类别')
+			) cv ON i.id = cv.customized_id
+		WHERE p.identifier = #{projectId}
+		AND DATE_FORMAT(i.created_on, '%Y-%m-%d') BETWEEN #{fromDate} AND #{toDate}
+		GROUP BY cv.value;
+	</select>
+
+	<select id="getDashboardChart01Sub" resultMap="result_dashboardChart01" parameterType="map">
+		SELECT cv.value as name, count(*) AS count
+		FROM issues i INNER JOIN projects p ON i.project_id = p.id 
+		INNER JOIN (
+			SELECT customized_id, value
+			FROM custom_values
+			WHERE value IN (
+				SELECT name 
+				FROM class2sts c2
+				INNER JOIN ( 
+					SELECT id 
+					FROM class1sts
+					WHERE project_identifier = #{projectId} 
+					AND name = #{classValue}
+				) c1 ON c2.parent_id = c1.id
+			)) cv ON i.id = cv.customized_id
+		WHERE p.identifier = #{projectId}
+		AND DATE_FORMAT(i.created_on, '%Y-%m-%d') BETWEEN #{fromDate} AND #{toDate}
+		GROUP BY cv.value;
+	</select>
+	
+	<select id="getDashboardGrid01Main" resultMap="result_dashboardGrid01" parameterType="map">
+		SELECT i.id, i.subject, cv1.value as class1st,cv2.value as class2rd, 
+			istatus.name as status, CONCAT(i.done_ratio,'%') as done_ratio, e.name as priority, 
+			CONCAT(u.lastname, u.firstname) as user_name, i.start_date, i.due_date, 
+			DATE_FORMAT(i.closed_on, '%Y-%m-%d') as close_date, i.estimated_hours, 
+			cv3.ac_hours as actual_hours
+		FROM issues i INNER JOIN projects p ON i.project_id = p.id 
+		INNER JOIN issue_statuses istatus ON i.status_id = istatus.id
+		INNER JOIN enumerations e ON i.priority_id = e.id
+		INNER JOIN users u ON i.assigned_to_id = u.id
+		LEFT JOIN (
+			SELECT customized_id, value
+			FROM custom_values
+			WHERE custom_field_id IN (
+				SELECT id FROM custom_fields
+				WHERE name = '类别')
+		) cv1 ON i.id = cv1.customized_id
+		LEFT JOIN (
+			SELECT customized_id, value
+			FROM custom_values
+			WHERE custom_field_id IN (
+				SELECT id FROM custom_fields
+				WHERE name = '子类别')
+		) cv2 ON i.id = cv2.customized_id
+		LEFT JOIN (
+			SELECT issue_id, sum(hours) AS ac_hours
+			FROM time_entries
+			GROUP BY issue_id
+		) cv3 ON i.id = cv3.issue_id
+		WHERE p.identifier = #{projectId}
+		AND DATE_FORMAT(i.created_on, '%Y-%m-%d') BETWEEN #{fromDate} AND #{toDate}
+	</select>
+
+	<select id="getDashboardGrid01Sub" resultMap="result_dashboardGrid01" parameterType="map">
+		SELECT i.id, i.subject, cv2.value as class2rd, istatus.name as status, 
+			CONCAT(i.done_ratio,'%') as done_ratio, e.name as priority, 
+			CONCAT(u.lastname, u.firstname) as user_name, i.start_date, i.due_date, 
+			DATE_FORMAT(i.closed_on, '%Y-%m-%d') as close_date, i.estimated_hours, 
+			cv3.ac_hours as actual_hours
+		FROM issues i INNER JOIN projects p ON i.project_id = p.id 
+		INNER JOIN issue_statuses istatus ON i.status_id = istatus.id
+		INNER JOIN enumerations e ON i.priority_id = e.id
+		INNER JOIN users u ON i.assigned_to_id = u.id
+		INNER JOIN (
+			SELECT customized_id, value
+			FROM custom_values
+			WHERE value IN (
+				SELECT name 
+				FROM class2sts c2 INNER JOIN ( 
+					SELECT id FROM db_redmine.class1sts
+					WHERE project_identifier = #{projectId} and name= #{classValue} 
+				) c1 ON c2.parent_id = c1.id
+			)
+		) cv1 ON i.id = cv1.customized_id
+		LEFT JOIN (
+			SELECT customized_id, value
+			FROM custom_values
+			WHERE custom_field_id IN (
+				SELECT id FROM custom_fields
+				WHERE name = '子类别')
+		) cv2 ON i.id = cv2.customized_id
+		LEFT JOIN (
+			SELECT issue_id, sum(hours) AS ac_hours
+			FROM time_entries
+			GROUP BY issue_id
+		) cv3 ON i.id = cv3.issue_id
+		WHERE p.identifier = #{projectId}
+		AND DATE_FORMAT(i.created_on, '%Y-%m-%d') BETWEEN #{fromDate} AND #{toDate}
+	</select>
+	
+	<select id="getDashboardGrid01Last" resultMap="result_dashboardGrid01" parameterType="map">
+		SELECT i.id, i.subject, istatus.name as status, CONCAT(i.done_ratio,'%') as done_ratio, e.name as priority, 
+			CONCAT(u.lastname, u.firstname) as user_name, i.start_date, i.due_date, 
+			DATE_FORMAT(i.closed_on, '%Y-%m-%d') as close_date, i.estimated_hours, cv3.ac_hours as actual_hours
+		FROM issues i INNER JOIN projects p ON i.project_id = p.id 
+		INNER JOIN issue_statuses istatus ON i.status_id = istatus.id
+		INNER JOIN enumerations e ON i.priority_id = e.id
+		INNER JOIN users u ON i.assigned_to_id = u.id
+		INNER JOIN (
+			SELECT customized_id, value
+			FROM custom_values
+			WHERE value in (
+				SELECT name 
+				FROM class2sts c2 INNER JOIN ( 
+					SELECT id 
+					FROM db_redmine.class1sts
+					WHERE project_identifier = #{projectId} and name = #{classValue} 
+				) c1 ON c2.parent_id = c1.id
+				WHERE c2.name= #{classValue2} 
+			)
+		) cv1 ON i.id = cv1.customized_id
+		LEFT JOIN (
+			SELECT issue_id, sum(hours) AS ac_hours
+			FROM time_entries
+			GROUP BY issue_id
+		) cv3 ON i.id = cv3.issue_id
+		WHERE p.identifier = #{projectId}
+		AND DATE_FORMAT(i.created_on, '%Y-%m-%d') BETWEEN #{fromDate} AND #{toDate}
+	</select>
+</mapper>

@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.nssol_sh.s5portal.persistence.DashboardIncidentMapper">
+	<resultMap type="com.nssol_sh.s5portal.domain.IncidentDataForCount"
+		id="result_incidentDataForCount">
+		<result property="name" column="name" />
+		<result property="counts" column="counts" />
+	</resultMap>
+	
+	<resultMap type="com.nssol_sh.s5portal.domain.IncidentDataForCountFinish"
+		id="result_incidentDataForCountFinish">
+		<result property="counts" column="counts" />
+		<result property="eHours" column="eHours" />
+		<result property="aHours" column="aHours" />
+	</resultMap>
+
+
+	<select id="getIncidentData" resultMap="result_incidentDataForCount" parameterType="map">
+		SELECT a.name,  ifnull(b.countNum,0) AS counts
+		FROM issue_statuses a LEFT JOIN
+		(
+			SELECT  status_id, count(status_id) AS countNum 
+			FROM issues i INNER JOIN custom_values_statistics s
+			ON i.id = s.issue_id
+			WHERE s.value1 = #{class1stsVal} AND s.value2 = #{class2stsVal}
+			AND s.value3 = ( SELECT name FROM projects WHERE identifier = #{projectId} )
+			AND DATE_FORMAT(i.created_ON, '%Y-%m-%d') BETWEEN #{fromDate} AND #{toDate}
+			GROUP BY status_id
+		) b ON a.id = b.status_id
+		ORDER BY a.id;	
+	</select>
+	
+	<select id="getIncidentDataPieChart" resultMap="result_incidentDataForCount" parameterType="map">
+		SELECT  CONCAT(s.value1 , "--", s.value2) as name, count(status_id) AS counts 
+		FROM issues i INNER JOIN custom_values_statistics s
+		ON i.id = s.issue_id
+		WHERE s.value1 = #{class1stsVal} AND s.value2 = #{class2stsVal}
+		AND s.value3 = ( SELECT name FROM projects WHERE identifier = #{projectId} )		
+		AND DATE_FORMAT(i.created_ON, '%Y-%m-%d') BETWEEN #{fromDate} AND #{toDate}
+		AND i.status_id != #{statusId}
+		GROUP BY name	
+	</select>
+	
+	<select id="getIncidentDataBarChart" resultMap="result_incidentDataForCount" parameterType="map">
+		SELECT s.value1 as name, count(status_id) AS counts 
+		FROM issues i INNER JOIN custom_values_statistics s
+		ON i.id = s.issue_id
+		WHERE s.value1 = #{class1stsVal}
+		AND s.value3 = ( SELECT name FROM projects WHERE identifier = #{projectId} )
+		AND DATE_FORMAT(i.created_ON, '%Y-%m-%d') BETWEEN #{fromDate} AND #{toDate}	
+		AND i.status_id != #{statusId}	
+	</select>
+	
+	<select id="getIncidentDataFinish" resultMap="result_incidentDataForCount" parameterType="map">
+		SELECT a.name,  ifnull(b.countNum,0) AS counts
+		FROM issue_statuses a INNER JOIN
+		(
+			SELECT  status_id, count(status_id) AS countNum 
+			FROM issues i INNER JOIN custom_values_statistics s
+			ON i.id = s.issue_id
+			WHERE s.value1 = #{class1stsVal} AND s.value2 = #{class2stsVal}
+			AND s.value3 = ( SELECT name FROM projects WHERE identifier = #{projectId} )		
+			AND i.status_id = #{statusId}
+			AND DATE_FORMAT(i.created_ON, '%Y-%m-%d') BETWEEN #{fromDate} AND #{toDate}
+			GROUP BY status_id
+		) b ON a.id = b.status_id
+		ORDER BY a.id;		
+	</select>	
+	
+	<select id="getFinishIncidentData" resultMap="result_incidentDataForCountFinish" parameterType="map">
+		SELECT count(b.id) AS counts, sum(b.estimated_hours) as eHours, sum(a.sumHours) aHours 
+		FROM (
+			SELECT i.root_id, sum(t.sumHours) as sumHours
+			FROM issues i INNER JOIN (
+				SELECT issue_id, sum(hours) as sumHours 
+				FROM time_entries
+				GROUP BY issue_id 
+			) t ON i.id = t.issue_id
+			GROUP BY root_id
+		) a INNER JOIN (
+			SELECT i.id, i.estimated_hours 
+			FROM issues i INNER JOIN custom_values_statistics s
+			ON i.id = s.issue_id
+			WHERE s.value1 = #{class1stsVal} AND s.value2 = #{class2stsVal}
+			AND s.value3 = ( SELECT name FROM projects WHERE identifier =  #{projectId} )		
+			AND DATE_FORMAT(i.created_ON, '%Y-%m-%d') BETWEEN #{fromDate} AND #{toDate}
+			AND i.status_id = #{statusId}
+		) b
+		ON a.root_id = b.id
+	</select>
+	
+</mapper>
